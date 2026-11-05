@@ -39,7 +39,8 @@ st.sidebar.title("⚖️ LexiSyncAI")
 st.sidebar.caption("Evidence-grounded answers from public legal documents")
 
 cases = Case.list_cases()
-choice = st.sidebar.selectbox("Case", ["➕ New case"] + cases)
+# open the first existing case by default, so a page refresh does not jump to "New case"
+choice = st.sidebar.selectbox("Case", ["➕ New case"] + cases, index=1 if cases else 0)
 if choice == "➕ New case":
     new_name = st.sidebar.text_input("Case name", placeholder="e.g. GDPR compliance review")
     if st.sidebar.button("Create case", disabled=not new_name):
@@ -111,7 +112,14 @@ with tab_docs:
                 if s.get("two_column_pages"):
                     st.caption(f"Two-column layout on pages {s['two_column_pages'][:20]}")
                 st.caption(f"Removed {s['removed_header_footer_lines']} repeated header/footer line(s)")
-                st.write("**Sections:** " + ", ".join(s["sections"][:200]))
+                secs = s["sections"]
+                arts = [x.split()[-1] for x in secs if x.startswith("Article ")]
+                recs = [x for x in secs if x.startswith("Recital ")]
+                other = [x for x in secs if not x.startswith(("Article ", "Recital "))]
+                st.write(f"**{len(arts)} articles, {len(recs)} recitals**"
+                         + (f", other sections: {', '.join(other[:20])}" if other else ""))
+                if arts:
+                    st.caption("Articles: " + ", ".join(arts))
 
 # ---------------------------------------------------------------- ask
 with tab_ask:
