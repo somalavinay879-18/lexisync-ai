@@ -7,3 +7,4 @@ data/docs/*.pdf
 !data/docs/.gitkeep
 .DS_Store
 .streamlit/secrets.toml
+~$*
