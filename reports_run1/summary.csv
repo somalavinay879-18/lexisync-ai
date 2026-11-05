@@ -1,0 +1,7 @@
+config,answer_correct_auto,answer_correct_manual,citation_precision,abstention_accuracy,false_abstention,mean_seconds,median_seconds,mean_prompt_tokens,mean_output_tokens,verifier_retries
+no_retrieval,0.556,,,0.75,0.111,10.79,9.84,92,200,0
+dense_only,0.556,,0.956,1.0,0.167,19.79,19.79,1067,230,1
+full,0.556,,0.863,1.0,0.222,16.91,17.97,886,195,0
+full_no_planner,0.611,,0.881,1.0,0.222,16.28,16.32,893,222,0
+full_no_verifier,0.556,,0.863,1.0,0.222,14.87,14.79,886,195,0
+full_k4,0.667,,0.844,1.0,0.167,16.46,17.29,651,216,0

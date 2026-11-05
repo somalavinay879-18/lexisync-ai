@@ -1,0 +1,11 @@
+mode,level,recall@1,recall@3,recall@5,recall@10,mrr
+bm25,article,0.667,0.806,0.833,0.944,0.839
+bm25,paragraph,0.444,0.639,0.694,0.806,0.637
+dense,article,0.722,0.917,0.944,0.972,0.889
+dense,paragraph,0.528,0.778,0.806,0.889,0.771
+hybrid,article,0.694,0.806,0.889,0.972,0.854
+hybrid,paragraph,0.5,0.611,0.806,0.889,0.689
+hybrid_rerank,article,0.861,0.917,0.917,0.944,0.972
+hybrid_rerank,paragraph,0.722,0.861,0.861,0.889,0.917
+hybrid_rerank_mq,article,0.861,0.917,0.944,0.972,0.972
+hybrid_rerank_mq,paragraph,0.722,0.861,0.889,0.917,0.907
