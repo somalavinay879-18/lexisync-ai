@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+data/cases/
+data/docs/*.pdf
+!data/docs/.gitkeep
+.DS_Store
+.streamlit/secrets.toml
