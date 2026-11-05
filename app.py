@@ -188,7 +188,7 @@ with tab_ask:
         st.caption("Try an example:")
         ex_cols = st.columns(len(EXAMPLES))
         for col, (label, q) in zip(ex_cols, EXAMPLES.items()):
-            col.button(label, on_click=set_question, args=(q,), use_container_width=True)
+            col.button(label, on_click=set_question, args=(q,), width="stretch")
         question = st.text_area("Question", key="question", height=90,
                                 placeholder="Ask anything about the documents in this case…")
         if st.button("Ask", type="primary", disabled=not question.strip()):
@@ -236,7 +236,7 @@ with tab_ask:
                         st.dataframe(pd.DataFrame([{
                             "": "✅" if c.supported else "❌", "Claim": c.text,
                             "Cited": ", ".join(c.citations), "Check": c.reason, "Quote": c.quote,
-                        } for c in ans.claims]), hide_index=True, use_container_width=True)
+                        } for c in ans.claims]), hide_index=True, width="stretch")
                 if ans.hits:
                     with st.expander(f"Retrieved passages ({len(ans.hits)})"):
                         rows = []
@@ -249,7 +249,7 @@ with tab_ask:
                                 "Text": h.chunk.text[:220] + ("…" if len(h.chunk.text) > 220 else ""),
                             })
                         df = pd.DataFrame(rows).dropna(axis=1, how="all")
-                        st.dataframe(df, hide_index=True, use_container_width=True, column_config={
+                        st.dataframe(df, hide_index=True, width="stretch", column_config={
                             "Relevance": st.column_config.ProgressColumn("Relevance", min_value=0, max_value=1,
                                                                          format="%.2f"),
                             "RRF": st.column_config.NumberColumn(format="%.4f"),
@@ -267,7 +267,7 @@ with tab_ask:
                     chosen = ans.cited[options.index(pick)]
                     st.image(page_image(pdf_by_doc[chosen.doc_id], chosen.page_start,
                                         [c for c in ans.cited if c.doc_id == chosen.doc_id]),
-                             caption=f"{chosen.label}: cited region highlighted", use_container_width=True)
+                             caption=f"{chosen.label}: cited region highlighted", width="stretch")
                     with st.expander("Cited text"):
                         st.write(chosen.text)
                 else:
@@ -330,7 +330,7 @@ with tab_eval:
             )
             labels = bars.mark_text(dy=-7, fontSize=10, color="#c9d1d9").encode(
                 text=alt.Text("value:Q", format=".0%"))
-            st.altair_chart((bars + labels).properties(height=330), use_container_width=True)
+            st.altair_chart((bars + labels).properties(height=330), width="stretch")
 
             c_lat, c_tab = st.columns([2, 3], gap="large")
             with c_lat:
@@ -340,7 +340,7 @@ with tab_eval:
                 lat = lat_base.mark_bar(color="#8b949e", cornerRadiusEnd=3) + lat_base.mark_text(
                     align="left", dx=4, color="#c9d1d9").encode(text=alt.Text("mean_seconds:Q", format=".1f"))
                 st.markdown("**Latency**")
-                st.altair_chart(lat.properties(height=36 * len(summ)), use_container_width=True)
+                st.altair_chart(lat.properties(height=36 * len(summ)), width="stretch")
             with c_tab:
                 fmt = lambda v, f: "–" if v is None or pd.isna(v) else f.format(v)
                 table = pd.DataFrame([{
@@ -353,7 +353,7 @@ with tab_eval:
                     "Tokens in": fmt(r.get("mean_prompt_tokens"), "{:.0f}"),
                 } for _, r in summ.iterrows()])
                 st.markdown("**All setups**")
-                st.dataframe(table, hide_index=True, use_container_width=True)
+                st.dataframe(table, hide_index=True, width="stretch")
 
         if retrieval_path.exists():
             st.subheader("Retrieval: recall@k per configuration")
@@ -372,12 +372,12 @@ with tab_eval:
                     color=alt.Color("mode:N", legend=alt.Legend(orient="bottom", title=None, columns=3, labelLimit=200)),
                     tooltip=["mode", "k", alt.Tooltip("recall:Q", format=".1%")],
                 ).properties(height=300)
-                st.altair_chart(line, use_container_width=True)
+                st.altair_chart(line, width="stretch")
             with c2:
                 tbl = sub.drop(columns=["level"]).set_index("mode")
                 tbl.columns = [c.replace("recall@", "R@").upper() if c != "mrr" else "MRR" for c in tbl.columns]
                 st.dataframe(tbl.style.format("{:.2f}").highlight_max(axis=0, color="rgba(46,160,67,0.35)"),
-                             use_container_width=True)
+                             width="stretch")
                 st.caption("Green = best per column. MRR = 1 / rank of the first correct passage.")
 
         if answers_path.exists():
@@ -388,7 +388,7 @@ with tab_eval:
                 view = answers[answers["config"] == cfg]
                 cols = [c for c in ["id", "type", "question", "answer", "citations", "abstained", "auto_correct",
                                     "manual_correct", "confidence", "seconds"] if c in view]
-                st.dataframe(view[cols], hide_index=True, use_container_width=True, column_config={
+                st.dataframe(view[cols], hide_index=True, width="stretch", column_config={
                     "question": st.column_config.TextColumn(width="medium"),
                     "answer": st.column_config.TextColumn(width="large"),
                     "seconds": st.column_config.NumberColumn(format="%.1f"),
