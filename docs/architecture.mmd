@@ -1,0 +1,43 @@
+flowchart LR
+    subgraph IN["1 · Ingestion (lexisync/ingest.py)"]
+        A["2-5 public PDFs<br/>upload or URL"] --> B["PyMuPDF text blocks<br/>+ reading order (1-2 columns)"]
+        B --> C["Remove repeated<br/>headers / footers"]
+        B --> D["Footnotes · tables<br/>(Markdown)"]
+        B --> E{"Scanned page?<br/>little text + big image"}
+        E -- yes --> F["Tesseract OCR<br/>(flag if unavailable)"]
+    end
+
+    subgraph CH["2 · Clause-aware chunking (chunking.py)"]
+        G["Recitals · Articles · paragraphs 83(5)<br/>contract sections 7 / clauses 7.2<br/>chunk = clause + page + on-page region"]
+    end
+
+    subgraph RET["3 · Hybrid retrieval (retrieve.py)"]
+        H["BM25<br/>keeps '7.2', '83(5)'"]
+        I["Dense embeddings<br/>bge-small-en-v1.5"]
+        J["Reciprocal Rank Fusion<br/>top 30"]
+        K["Cross-encoder rerank<br/>ms-marco-MiniLM-L-6-v2 → top 6"]
+        H --> J
+        I --> J
+        J --> K
+    end
+
+    subgraph GEN["4 · Grounded answer (answer.py)"]
+        L{"Best relevance<br/>< 0.1 ?"}
+        M["Local LLM via Ollama (qwen2.5:7b)<br/>JSON: answer · claims · passage ids · quotes"]
+        N{"Verifier: quote in cited passage?<br/>numbers in cited passage?"}
+        O["Reformulate query,<br/>retrieve again (max 2 attempts)"]
+        P["Answer with page + clause citations<br/>confidence HIGH / MEDIUM / LOW<br/>conflicts explained"]
+        Q["ABSTAIN: insufficient evidence<br/>+ documents searched"]
+        L -- no --> M --> N
+        N -- all claims supported --> P
+        N -- claim fails --> O --> M
+        L -- yes --> Q
+        N -- nothing supported --> Q
+    end
+
+    UI["5 · Streamlit UI (app.py)<br/>case · structure view · ask ·<br/>cited page with highlighted region"]
+    EV["6 · Evaluation (eval/)<br/>22 questions · recall@k · citation precision ·<br/>abstention · latency · no-retrieval vs full"]
+
+    IN --> CH --> RET --> GEN --> UI
+    GEN -.-> EV
+    RET -.-> EV
