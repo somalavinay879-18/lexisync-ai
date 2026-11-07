@@ -34,6 +34,8 @@
 Retrieval, paragraph level: hybrid + rerank R@1 0.72 vs dense 0.53 vs BM25 0.44; MRR 0.92. The cross-encoder gives
 the biggest gain. Plain hybrid RRF was slightly worse than dense alone on this question set.
 
+OCR (Tesseract 5.5, 200 dpi): 96.2% mean character accuracy on 5 GDPR pages rendered as images.
+
 ## Questions about my own results
 
 **Why is plain hybrid (RRF) worse than dense alone, if hybrid is supposed to be better?**
