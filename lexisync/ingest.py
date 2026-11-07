@@ -7,6 +7,7 @@ import logging
 import re
 import shutil
 import statistics
+import unicodedata
 from collections import Counter
 from pathlib import Path
 
@@ -36,7 +37,8 @@ def _block_lines(block: dict) -> list[dict]:
         spans = [s for s in line.get("spans", []) if s.get("text", "").strip()]
         if not spans:
             continue
-        text = "".join(s["text"] for s in line["spans"]).strip()
+        # NFKC turns ligatures such as "ﬁ" into "fi", so "Deﬁnitions" matches section patterns
+        text = unicodedata.normalize("NFKC", "".join(s["text"] for s in line["spans"])).strip()
         size = max(s["size"] for s in spans)
         bold = any((s.get("flags", 0) & 16) or "Bold" in s.get("font", "") for s in spans)
         lines.append({"text": text, "bbox": tuple(line["bbox"]), "size": size, "bold": bold})
@@ -131,20 +133,39 @@ def _ocr_page(page: pymupdf.Page, doc_id: str, page_no: int) -> list[Unit]:
     pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom))
     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
-    paras: dict[tuple, dict] = {}
+    # Tesseract's automatic layout mode (psm 3) sometimes drops a clause number at the start of a line
+    # ("3. Grant" -> ". Grant"). If that happens, read the page again as one uniform text block (psm 6).
+    words = [w for w in data["text"] if w.strip()]
+    if any(w in (".", ")") or re.match(r"^\.[A-Z]", w) for w in words[:400]) and sum(
+            1 for w in words if w == ".") >= 2:
+        data = pytesseract.image_to_data(img, config="--psm 6", output_type=pytesseract.Output.DICT)
+    # Collect OCR words into lines, then split each OCR paragraph into clauses like digital text,
+    # so "3. Grant of Patent License" starts a new unit even if Tesseract merged it into a block.
+    lines: dict[tuple, dict] = {}
     for i, word in enumerate(data["text"]):
         if not word.strip() or float(data["conf"][i]) < 0:
             continue
-        key = (data["block_num"][i], data["par_num"][i])
+        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
         x, y, w, h = (data[k][i] / zoom for k in ("left", "top", "width", "height"))
-        p = paras.setdefault(key, {"words": [], "bbox": [x, y, x + w, y + h]})
-        p["words"].append(word)
-        b = p["bbox"]
-        p["bbox"] = [min(b[0], x), min(b[1], y), max(b[2], x + w), max(b[3], y + h)]
-    return [
-        Unit(doc_id, page_no, " ".join(p["words"]), tuple(p["bbox"]), kind="ocr")
-        for p in paras.values()
-    ]
+        ln = lines.setdefault(key, {"words": [], "bbox": [x, y, x + w, y + h]})
+        ln["words"].append(word)
+        b = ln["bbox"]
+        ln["bbox"] = [min(b[0], x), min(b[1], y), max(b[2], x + w), max(b[3], y + h)]
+    paras: dict[tuple, list[dict]] = {}
+    for key in sorted(lines):
+        ln = lines[key]
+        text = unicodedata.normalize("NFKC", " ".join(ln["words"]))
+        paras.setdefault(key[:2], []).append({"text": text, "bbox": tuple(ln["bbox"]), "size": 0, "bold": False})
+    units = []
+    for para_lines in paras.values():
+        for chunk in _split_paragraphs(para_lines):
+            text = _join_lines([l["text"] for l in chunk])
+            if not text:
+                continue
+            bbox = (min(l["bbox"][0] for l in chunk), min(l["bbox"][1] for l in chunk),
+                    max(l["bbox"][2] for l in chunk), max(l["bbox"][3] for l in chunk))
+            units.append(Unit(doc_id, page_no, text, bbox, kind="ocr"))
+    return units
 
 
 def _tables(page: pymupdf.Page, doc_id: str, page_no: int) -> list[Unit]:

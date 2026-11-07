@@ -21,6 +21,8 @@ RECITAL = re.compile(r"^\((\d{1,3})\)\s+\S")
 PARAGRAPH = re.compile(r"^(\d{1,2})\.\s+\S")
 DEFINITION = re.compile(r"^\((\d{1,3})\)\s+\S")
 CONTRACT_SECTION = re.compile(r"^(\d{1,2})\.?\s+([A-Z][A-Za-z ,&/'-]{2,80})$")
+# "1. Definitions. You shall mean ..." - section number and short heading inline with the text
+CONTRACT_SECTION_INLINE = re.compile(r"^(\d{1,2})\.\s+([A-Z][A-Za-z ,&/'()-]{2,60}?)\.\s+\S")
 CONTRACT_CLAUSE = re.compile(r"^(\d{1,2}\.\d{1,2}(?:\.\d{1,2})?)\.?\s+\S")
 POINT = re.compile(r"^\(([a-z]{1,2}|[ivx]{1,4})\)\s")
 
@@ -205,6 +207,17 @@ def chunk_document(doc: Document) -> list[Chunk]:
             b.has_contract_sections = True
             b.start(section=f"Section {m.group(1)}", title=m.group(2).strip())
             continue
+        m = CONTRACT_SECTION_INLINE.match(text)
+        if m and len(m.group(2).split()) <= 8:
+            b.has_contract_sections = True
+            b.start(section=f"Section {m.group(1)}", title=m.group(2).strip())
+            b.units.append(unit)
+            continue
+        m = PARAGRAPH.match(text)
+        if m and b.has_contract_sections and not CONTRACT_CLAUSE.match(text):
+            b.start(section=f"Section {m.group(1)}")   # numbered section without a heading: "4. You represent ..."
+            b.units.append(unit)
+            continue
         m = CONTRACT_CLAUSE.match(text)
         if m:
             b.has_contract_sections = True
@@ -217,8 +230,9 @@ def chunk_document(doc: Document) -> list[Chunk]:
             continue
 
         # Unstructured text: keep paragraphs together, cut by size per page
-        if b.section == "Preamble" and not b.chunks and unit.page > 1:
-            b.start(section=f"Page {unit.page}")
+        if (b.section == "Preamble" and not b.chunks and unit.page > 1) or (
+                b.section.startswith("Page ") and b.section != f"Page {unit.page}"):
+            b.start(section=f"Page {unit.page}")   # no structure found: one section per page
         b.units.append(unit)
         if sum(len(u.text) for u in b.units) > MAX_CHARS * 0.8:
             b.flush()

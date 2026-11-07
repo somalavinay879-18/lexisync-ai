@@ -1,3 +1,5 @@
+import pymupdf
+
 from lexisync.chunking import chunk_document
 from lexisync.ingest import load_pdf, ocr_available, structure_report
 
@@ -60,3 +62,48 @@ def test_gdpr_layout(gdpr_like_pdf):
     # chapter titles are not glued onto the previous article
     assert all("Remedies, liability and penalties" not in c.text for c in chunks)
     assert any(c.section == "Recital 1" for c in chunks)
+
+
+def _inline_contract(path):
+    """A contract whose section headings sit inline with the text ("1. Definitions. ..."), as in
+    Apache-style licence agreements."""
+    doc = pymupdf.open()
+    texts = [
+        ["Contributor Licence Agreement", "Thank you for your interest. Please read the terms below."],
+        ["1. Definitions. \"You\" means the copyright owner that is making this agreement.",
+         "2. Grant of Copyright License. You grant a perpetual, worldwide, royalty-free licence.",
+         "3. You represent that you are legally entitled to grant the above licence."],
+    ]
+    for page in texts:
+        p = doc.new_page(width=595, height=842)
+        y = 80
+        for t in page:
+            p.insert_textbox(pymupdf.Rect(60, y, 535, y + 60), t, fontsize=11)
+            y += 70
+    doc.save(path)
+    return path
+
+
+def test_inline_contract_sections(tmp_path):
+    chunks = chunk_document(load_pdf(_inline_contract(tmp_path / "icla.pdf"), "icla", "ICLA"))
+    by_section = {c.section: c for c in chunks}
+    assert by_section["Section 1"].title == "Definitions"
+    assert by_section["Section 2"].title == "Grant of Copyright License"
+    assert "Section 3" in by_section                                  # numbered section without heading
+    assert by_section["Section 2"].label == "ICLA p. 2, Section 2"
+
+
+def test_unstructured_pages_get_one_section_per_page(tmp_path):
+    doc = pymupdf.open()
+    for n in range(3):
+        doc.new_page(width=595, height=842).insert_textbox(
+            pymupdf.Rect(60, 80, 535, 400), f"Plain prose on page {n + 1} without any numbering at all.", fontsize=11)
+    doc.save(tmp_path / "prose.pdf")
+    sections = {c.section for c in chunk_document(load_pdf(tmp_path / "prose.pdf", "p", "Prose"))}
+    assert {"Page 2", "Page 3"} <= sections
+
+
+def test_ligatures_are_normalised():
+    from lexisync.ingest import _block_lines
+    block = {"lines": [{"bbox": (0, 0, 10, 10), "spans": [{"text": "1. Deﬁnitions.", "size": 10, "flags": 0, "font": "x"}]}]}
+    assert _block_lines(block)[0]["text"] == "1. Definitions."

@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 
 from lexisync.pipeline import Case  # noqa: E402
 
-NAMES = {"gdpr": "GDPR", "eprivacy": "ePrivacy Directive"}
+NAMES = {"gdpr": "GDPR", "eprivacy": "ePrivacy Directive", "bbc-icla": "BBC Contributor Licence Agreement"}
 
 
 def main() -> None:
