@@ -11,9 +11,68 @@
 4. **(1 min) Multi-hop question.** Show that the answer cites two pages or clauses and open the *Claim
    verification* list.
 5. **(1 min) Unanswerable question.** Show the abstention, the reason and the list of searched documents.
-6. **(30 s) Evaluation.** One slide or table: recall@k (dense vs hybrid vs hybrid+rerank) and no-retrieval vs full.
+6. **(30 s) Evaluation.** Open the *Evaluation* tab: headline numbers, the end-to-end chart and the recall@k chart.
 
-Tip: before the exam, run the app once with a new PDF so the models are downloaded and warm.
+### Checklist before the exam
+
+- Start Ollama and the app, and ask **one warm-up question** (the first answer takes ~40 s while the model loads).
+- Set *Passages given to the LLM* to 4 (same accuracy as 6, about twice as fast).
+- `brew install tesseract`, so a scanned exam PDF is OCR'd instead of skipped.
+- Practise once with a PDF you have never used, ideally a contract (sections 7 / clauses 7.2) and a scanned page.
+- Close extra browser tabs of the app; keep the laptop plugged in.
+
+## My results (memorise these)
+
+| | LLM only | Full system | Full, 4 passages |
+|---|---|---|---|
+| Correct (manual, 18 answerable) | 56% | 78% | 78% |
+| Unanswerable refused (4) | 0% | 100% | 100% |
+| Citation precision | – | 84% | 85% |
+| Wrongly refused | 0% | 11% | 0% |
+| Mean latency | 10.9 s | 33.1 s | 17.2 s |
+
+Retrieval, paragraph level: hybrid + rerank R@1 0.72 vs dense 0.53 vs BM25 0.44; MRR 0.92. The cross-encoder gives
+the biggest gain. Plain hybrid RRF was slightly worse than dense alone on this question set.
+
+## Questions about my own results
+
+**Why is plain hybrid (RRF) worse than dense alone, if hybrid is supposed to be better?**
+On paraphrased questions BM25 ranks keyword-matching but wrong passages high, and RRF averages that noise in.
+Hybrid is still the right candidate generator because it finds clause numbers dense misses; the cross-encoder then
+fixes the ordering (R@1 0.50 → 0.72).
+
+**What does the query planner do, and did it help?**
+It splits a two-part question ("…, and which violations trigger the higher fine?") into sub-queries, searches each,
+and keeps the best passage per part. Retrieval improved (R@10 0.89 → 0.92), but end-to-end correctness did not
+(0.78 with vs 0.83 without = one question of 18). With six multi-hop questions that difference is noise. I report
+it honestly instead of claiming a gain.
+
+**What did you change after the first evaluation run?**
+Error analysis of run 1 (`reports_run1/`) showed the model abstaining on two-part questions: the JSON schema made it
+decide `abstain` before writing any evidence. I reordered the schema (claims → answer → missing → abstain), allowed
+partial answers, and added a rule to keep default rules and exceptions apart (it had swapped 16 and 13 in Art. 8).
+The baseline kept its original prompt so the comparison stays fair. Because I tuned on these questions, the numbers
+are optimistic; a fresh question set would be the clean test.
+
+**Why both automatic and manual grading?**
+The automatic check only looks for key facts such as "72 hours". It rated the LLM-only answers too high (61% vs 56%
+manual) because it finds the right number in answers that are vague or partly wrong.
+
+**Why did the verifier not change any answers?**
+In the final run no claim failed, so there were no retries. The verifier is a safety net; the tests show it rejecting
+a wrong number. Its limit: it checks that a quote and its numbers are in the passage, not legal logic. In M06 a wrong
+exception shared enough words with the passage to pass.
+
+**Why is an answer MEDIUM and not HIGH?**
+HIGH needs every claim verified and a best relevance of at least 0.7. Partial answers are capped at MEDIUM.
+
+**Why is the 0.1 abstention threshold safe?**
+On my questions every answerable question had a best relevance of at least 0.54 and every unanswerable one at most
+0.03, so 0.1 separates them with a large margin. On a new document type the threshold should be re-checked.
+
+**Why is it slow, and would a GPU help?**
+Retrieval takes milliseconds and reranking ~150 ms; almost all time is the 7B LLM generating on a laptop. Fewer
+passages (k = 4) halves the prompt and the time. A smaller model (3B) or a GPU server would be faster.
 
 ## Likely theory questions with short answers
 

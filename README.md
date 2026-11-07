@@ -27,15 +27,15 @@ highlighted, and the system **abstains** when the documents do not contain the e
 |---|---|---|
 | Ingestion | PyMuPDF text blocks; reading order for one- and two-column pages; repeated headers/footers removed; footnotes (small font, page bottom) kept separately; tables extracted as Markdown (merged cells filled); scanned pages detected (little text, large image) and OCR'd with Tesseract | `lexisync/ingest.py` |
 | Chunking | **Clause-aware**, not fixed-size: recitals, articles and their numbered paragraphs (`Article 83(5)`, definitions `4(11)`), contract sections and clauses (`7`, `7.2`). Points (a), (b) stay with their paragraph; very long clauses are split at points. Each chunk keeps page numbers and on-page bounding boxes | `lexisync/chunking.py` |
-| Retrieval | **BM25** (tokenizer keeps legal references such as `7.2` and `83(5)`) + **dense** embeddings (`BAAI/bge-small-en-v1.5`), merged with **Reciprocal Rank Fusion** (k = 60), then the top 30 are **reranked with a cross-encoder** (`cross-encoder/ms-marco-MiniLM-L-6-v2`) | `lexisync/retrieve.py`, `lexisync/embed.py` |
+| Retrieval | **BM25** (tokenizer keeps legal references such as `7.2` and `83(5)`) + **dense** embeddings (`BAAI/bge-small-en-v1.5`), merged with **Reciprocal Rank Fusion** (k = 60), then the top 30 are **reranked with a cross-encoder** (`cross-encoder/ms-marco-MiniLM-L-6-v2`). A **query planner** splits two-part questions into sub-queries and makes sure the best passage for each part reaches the LLM | `lexisync/retrieve.py`, `lexisync/embed.py` |
 | Generation | Local LLM through **Ollama** (`qwen2.5:7b`, temperature 0, fixed seed) answers only from the numbered passages and returns JSON: answer, claims, passage ids per claim, a supporting quote per claim, explanation, conflicts. An OpenAI-compatible API can be used instead (`LLM_BACKEND=openai`) | `lexisync/llm.py`, `lexisync/answer.py` |
 | Grounding | **Verifier loop**: every claim's quote must occur in its cited passage and every number in the claim must appear there. If a claim fails, the query is reformulated with the failed claim, retrieval runs again and the answer is regenerated (max. 2 attempts). Claims that still fail are dropped | `lexisync/answer.py` |
-| Abstention | Two layers: (1) retrieval gate: if the best reranker relevance is below 0.1 the LLM is not called; (2) the LLM may set `abstain`, and an answer with no verified claim is turned into an abstention | `lexisync/answer.py` |
-| UI | Streamlit: cases, upload/URL, structure view, question, cited answer, confidence badge, cited page with highlighted region, verifier log, retrieval scores, latency and tokens | `app.py` |
+| Abstention | Two layers: (1) retrieval gate: if the best reranker relevance is below 0.1 the LLM is not called; (2) the LLM may set `abstain`, and an answer with no verified claim is turned into an abstention. If only part of a two-part question is covered, a **partial answer** is given and the missing part is named (confidence at most MEDIUM) | `lexisync/answer.py` |
+| UI | Streamlit, three tabs: **Ask** (example questions, cited answer, confidence badge, cited page with highlighted region, claim verification, retrieval scores, latency), **Documents & structure** (upload/URL, indexing, detected structure per document) and **Evaluation** (charts of all results from `reports/`) | `app.py` |
 
 ## Run it
 
-Requirements: Python 3.11+, [Ollama](https://ollama.com) and optionally Tesseract (`brew install tesseract`) for scanned pages.
+Requirements: Python 3.12+ (tested with 3.13), [Ollama](https://ollama.com) and optionally Tesseract (`brew install tesseract`) for scanned pages.
 
 ```bash
 make setup        # virtual environment + pinned dependencies
@@ -45,7 +45,7 @@ make index        # parse, chunk and index them into the case "GDPR ePrivacy"
 make app          # http://localhost:8501
 ```
 
-Or everything at once: `make all`. With Docker (Ollama keeps running on the host):
+Or everything at once: `make all`. If EUR-Lex blocks the automatic download, `make docs` prints the two links; save the PDFs as `data/docs/gdpr.pdf` and `data/docs/eprivacy.pdf` and continue with `make index`. With Docker (Ollama keeps running on the host):
 
 ```bash
 docker build -t lexisync . && docker run -p 8501:8501 lexisync

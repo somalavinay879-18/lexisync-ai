@@ -15,10 +15,12 @@ flowchart LR
         H["BM25<br/>keeps '7.2', '83(5)'"]
         I["Dense embeddings<br/>bge-small-en-v1.5"]
         J["Reciprocal Rank Fusion<br/>top 30"]
-        K["Cross-encoder rerank<br/>ms-marco-MiniLM-L-6-v2 → top 6"]
+        K["Cross-encoder rerank<br/>ms-marco-MiniLM-L-6-v2 → top 4-6"]
+        PL["Query planner<br/>two-part question → sub-queries<br/>best passage per part kept"]
         H --> J
         I --> J
         J --> K
+        K --> PL
     end
 
     subgraph GEN["4 · Grounded answer (answer.py)"]
@@ -28,15 +30,17 @@ flowchart LR
         O["Reformulate query,<br/>retrieve again (max 2 attempts)"]
         P["Answer with page + clause citations<br/>confidence HIGH / MEDIUM / LOW<br/>conflicts explained"]
         Q["ABSTAIN: insufficient evidence<br/>+ documents searched"]
+        R["PARTIAL answer<br/>covered part + named missing part<br/>(max. MEDIUM)"]
         L -- no --> M --> N
         N -- all claims supported --> P
         N -- claim fails --> O --> M
         L -- yes --> Q
         N -- nothing supported --> Q
+        N -- part of question covered --> R
     end
 
-    UI["5 · Streamlit UI (app.py)<br/>case · structure view · ask ·<br/>cited page with highlighted region"]
-    EV["6 · Evaluation (eval/)<br/>22 questions · recall@k · citation precision ·<br/>abstention · latency · no-retrieval vs full"]
+    UI["5 · Streamlit UI (app.py)<br/>Ask · Documents & structure · Evaluation<br/>cited page with highlighted region"]
+    EV["6 · Evaluation (eval/)<br/>22 questions · recall@k per mode · citation precision ·<br/>abstention · latency · no-retrieval vs full · ablations"]
 
     IN --> CH --> RET --> GEN --> UI
     GEN -.-> EV
