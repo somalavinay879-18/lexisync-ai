@@ -1,0 +1,12 @@
+id,type,top_relevance
+H01,factual,0.9981
+H02,factual,0.9295
+H03,factual,0.9575
+H04,factual,0.9987
+H05,factual,0.9992
+H06,multihop,0.975
+H07,multihop,0.9211
+H08,multihop,0.9912
+H09,unanswerable,0.0002
+H10,unanswerable,0.1293
+H11,unanswerable,0.7487

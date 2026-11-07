@@ -144,6 +144,33 @@ answer as correct only if it answers what was asked without a legal error.
 - *Remaining errors:* M04 and M06 miss the second paragraph (Art. 15(1), Art. 17(3)); in M06 the model then fills
   the gap with a wrong exception that passes the lexical verifier. M02/M03 are still refused in `full`.
 
+### Held-out test on an unseen contract
+
+To check that the numbers are not just tuned to the 22 questions above, I wrote 11 new questions (5 factual,
+3 two-part, 3 unanswerable) about a document the system had never seen, **before** running it, and did not change
+the code or prompt afterwards. The document is the BBC's public *Individual Contributor Licence Agreement*
+(4 pages, contract-style sections "1. Definitions. …"); page 3 was turned into an image to test OCR. The case also
+contains the ePrivacy Directive as a distractor. Files: `eval/questions_heldout.jsonl`, `data/heldout/`,
+`reports/heldout/`.
+
+| Config | Correct (manual, 8 answerable) | Citation precision | Unanswerable refused (3) | Wrongly refused | Mean latency |
+|---|---|---|---|---|---|
+| no_retrieval | 0.375 | – | 0.00 | 0.00 | 8.8 s |
+| full_k4 | **0.875** | **1.00** | 0.67 | 0.125 | 15.9 s |
+
+Retrieval (paragraph level): hybrid + rerank + planner R@1 0.81, R@3 1.00, MRR 1.00.
+
+What the held-out run showed:
+
+- Testing on the contract first revealed two ingestion bugs, fixed before the run: inline section headings
+  ("1. Definitions. …") were not detected and fell back to page labels, and OCR dropped clause numbers on the
+  scanned page ("3. Grant" → ". Grant"). After the fix the scanned page yields the same sections as the digital one.
+- **H11 is a confident wrong answer** (HIGH): asked which licence the BBC uses for its own software, the model
+  turned "Based on Apache ICLA" into "the BBC uses a license similar to Apache". The quoted words are in the
+  passage, so the lexical verifier accepted it. This is the main weakness of the system (see Limitations).
+- H08 (two-part) was refused although both sections were retrieved, the same multi-hop weakness as M02/M03.
+- These failures were reported, not fixed: changing the prompt now would tune on the held-out set.
+
 ## Extended features
 
 | # | Feature | Status |
@@ -154,13 +181,13 @@ answer as correct only if it answers what was asked without a legal error.
 | 5 | Planner + verifier loop | Planner splits two-part questions into sub-queries and guarantees each part's best passage reaches the LLM; verifier checks quotes and numbers, reformulates and retries (step cap 2); retry log shown in the UI |
 | 7 | Ablation table | Retrieval: bm25 vs dense vs hybrid vs hybrid+rerank vs +planner. Answers: with vs without planner, with vs without verifier |
 | 9 | Multi-document cross-referencing | Questions combine documents (e.g. ePrivacy Art. 5(3) + GDPR Art. 94); conflicting sources are reported in a separate "conflicts" field |
-| 10 | Public deployment | Streamlit Community Cloud with an OpenAI-compatible API (see below) |
+| 10 | Public deployment | **Prepared, not deployed.** The app can switch to an OpenAI-compatible API (see below), which a free cloud host needs because it cannot run a 7B model. I kept the demo local so that documents never leave the machine |
 | 11 | Latency and cost report | Seconds and tokens per question; optimisation measured: `full_k4` vs `full` |
 
-### Deployment (Streamlit Community Cloud)
+### Deploying (optional, not used)
 
-A free cloud host cannot run Ollama, so the deployed demo uses an OpenAI-compatible API (for example Groq's
-free tier). In the app settings, add the secrets:
+A free cloud host such as Streamlit Community Cloud cannot run Ollama, so a deployment would use an
+OpenAI-compatible API (for example Groq's free tier), with these secrets in the app settings:
 
 ```toml
 LLM_BACKEND = "openai"
@@ -195,9 +222,10 @@ docs/architecture.png   one-page architecture diagram
 
 - Clause detection is rule-based and tuned for EU legal acts and numbered contracts; unusual layouts fall back
   to paragraph chunks with page numbers.
-- The verifier checks quotes and numbers lexically; it cannot judge legal reasoning (M06: a wrong exception
-  shares enough words with the cited passage to pass).
-- Small evaluation set (22 questions, 6 multi-hop): differences of one question are not significant.
+- The verifier checks quotes and numbers lexically; it cannot judge legal reasoning or entailment (M06: a wrong
+  exception, H11: an unsupported conclusion; both quote real words from the passage and pass). An NLI model that
+  checks whether the passage entails the claim would be the next step.
+- Small evaluation sets (22 + 11 held-out questions): differences of one question are not significant.
 - The closed-book baseline's abstention is unstable between runs (3/4 refused in run 1, 0/4 in run 2).
 - A 7B local model can still misread complex provisions. The verifier reduces, but does not remove, this risk.
 

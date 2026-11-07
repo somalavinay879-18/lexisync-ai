@@ -36,6 +36,25 @@ the biggest gain. Plain hybrid RRF was slightly worse than dense alone on this q
 
 OCR (Tesseract 5.5, 200 dpi): 96.2% mean character accuracy on 5 GDPR pages rendered as images.
 
+**Held-out test (unseen BBC contract, 11 new questions, nothing tuned afterwards):** 7/8 correct vs 3/8 for the LLM
+alone, citation precision 100%, 2/3 unanswerable refused. Retrieval R@3 = 1.0.
+
+## Questions about the held-out test
+
+**How do you know your numbers are not just tuned to your questions?**
+I wrote 11 new questions on an unseen contract before running the system, and changed nothing afterwards. It got
+7 of 8 answerable questions right with every citation correct, close to the main result.
+
+**What failed on the held-out test?**
+H11: asked which licence the BBC uses for its own software, it answered "similar to Apache" with HIGH confidence,
+from the line "Based on Apache ICLA". The quote was real, so the lexical verifier passed it. Fix: an NLI verifier
+that checks entailment, not word overlap. I did not change the prompt, because that would tune on the test set.
+
+**Why is it not deployed online?**
+It is built to run locally so legal documents never leave the machine. A free cloud host cannot run a 7B model;
+deploying would need a GPU server or a cloud LLM API, which breaks that privacy guarantee. The code supports an
+OpenAI-compatible backend if someone wants to deploy it anyway.
+
 ## Questions about my own results
 
 **Why is plain hybrid (RRF) worse than dense alone, if hybrid is supposed to be better?**
