@@ -24,34 +24,71 @@ st.set_page_config(page_title="LexiSyncAI", page_icon="⚖️", layout="wide")
 st.markdown(
     """
     <style>
+      :root { --ink:#14213d; --paper:#f7f4ee; --card:#ffffff; --brass:#9a7b3f; --line:#e3dccd; --muted:#6b7280; }
       .block-container {padding-top: 2rem; max-width: 1400px;}
-      h1 {font-size: 2rem !important; margin-bottom: 0 !important;}
-      .lx-sub {color: #8b949e; font-size: 0.95rem; margin: 0.2rem 0 1rem 0;}
+      h1, h2, h3 {font-family: Georgia, "Times New Roman", serif !important; color: var(--ink) !important;
+                  letter-spacing: -0.01em;}
+      h1 {font-size: 2.2rem !important; margin-bottom: 0 !important;}
+      /* sidebar: navy panel with light text */
+      section[data-testid="stSidebar"] {background: var(--ink);}
+      section[data-testid="stSidebar"] * {color: #e8e3d6 !important;}
+      section[data-testid="stSidebar"] h1 {color: #ffffff !important;}
+      section[data-testid="stSidebar"] details, section[data-testid="stSidebar"] summary
+          {background: #1d2d52 !important; border-color: #2c3e6b !important;}
+      section[data-testid="stSidebar"] [data-testid="stSelectbox"] div[role="group"],
+      section[data-testid="stSidebar"] [data-testid="stSelectbox"] input
+          {background: #1d2d52 !important; border-color: #2c3e6b !important;
+           color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;}
+      section[data-testid="stSidebar"] [data-testid="stSelectbox"] svg {fill: #e8e3d6 !important;}
+      section[data-testid="stSidebar"] [data-testid="stCheckbox"] span {border-color: #c9b98f !important;}
+      /* cards */
+      div[data-testid="stVerticalBlockBorderWrapper"] {background: var(--card); border-color: var(--line) !important;
+                  border-radius: 12px !important; box-shadow: 0 1px 3px rgba(20,33,61,.06);}
+      /* tabs */
+      button[data-baseweb="tab"] p {font-size: 1rem; font-weight: 600;}
+      div[data-baseweb="tab-highlight"] {background-color: var(--brass) !important;}
+      /* buttons */
+      .stButton > button {border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink);}
+      .stButton > button:hover {border-color: var(--brass); color: var(--brass);}
+      .stButton > button[kind="primary"] {background: var(--ink); color: #fff; border: none;}
+      .stButton > button[kind="primary"]:hover {background: #22345e; color: #fff;}
+      textarea {background: var(--card) !important; border-radius: 10px !important;}
+      .lx-sub {color: var(--muted); font-size: 0.98rem; margin: 0.2rem 0 1rem 0; font-style: italic;}
       .lx-answer {font-size: 1.08rem; line-height: 1.65;}
       .lx-badge {display: inline-block; color: white; padding: 4px 12px; border-radius: 999px;
-                 font-weight: 600; font-size: 0.8rem; letter-spacing: 0.02em;}
+                 font-weight: 600; font-size: 0.78rem; letter-spacing: 0.04em; font-family: system-ui, sans-serif;}
       .lx-chip {display: inline-block; padding: 3px 10px; margin: 2px 6px 2px 0; border-radius: 6px;
-                border: 1px solid rgba(128,128,128,0.35); font-size: 0.85rem;}
-      .lx-muted {color: #8b949e; font-size: 0.85rem;}
-      div[data-testid="stMetricValue"] {font-size: 1.5rem;}
+                background: #f3eee2; border: 1px solid #e0d4b8; color: #5c4a22; font-size: 0.85rem;
+                font-family: system-ui, sans-serif;}
+      .lx-muted {color: var(--muted); font-size: 0.85rem;}
+      div[data-testid="stMetricValue"] {font-size: 1.5rem; color: var(--ink);}
+      img {border-radius: 6px;}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 BADGE = {
-    "HIGH": ("#1b7f3b", "HIGH CONFIDENCE"),
-    "MEDIUM": ("#b26a00", "MEDIUM CONFIDENCE"),
-    "LOW": ("#b3261e", "LOW CONFIDENCE"),
+    "HIGH": ("#2f6b3d", "HIGH CONFIDENCE"),
+    "MEDIUM": ("#9a6a12", "MEDIUM CONFIDENCE"),
+    "LOW": ("#a33a2c", "LOW CONFIDENCE"),
     "INSUFFICIENT EVIDENCE": ("#5f6368", "INSUFFICIENT EVIDENCE · abstained"),
     "UNVERIFIED": ("#5f6368", "UNVERIFIED · no retrieval"),
 }
 
-EXAMPLES = {
-    "Single fact": "Within what time must a controller notify a personal data breach to the supervisory authority?",
-    "Two paragraphs": "Under the GDPR, what is the maximum fine a company can receive, and which kinds of "
-                      "violations trigger the higher fine?",
-    "Not in the documents": "What is the corporate income tax rate in Germany?",
+EXAMPLES = {   # example questions per document set; hidden for other cases (e.g. a new exam PDF)
+    "gdpr": {
+        "Single fact": "Within what time must a controller notify a personal data breach to the supervisory authority?",
+        "Two paragraphs": "Under the GDPR, what is the maximum fine a company can receive, and which kinds of "
+                          "violations trigger the higher fine?",
+        "Not in the documents": "What is the corporate income tax rate in Germany?",
+    },
+    "bbc-icla": {
+        "Single fact": "What share of ownership counts as control over a legal entity for the purposes of this agreement?",
+        "Two sections": "If my employer has rights to what I create, what must I confirm before contributing, "
+                        "and what must I do if my representations later become inaccurate?",
+        "Not in the documents": "Which court has jurisdiction over disputes arising from this agreement?",
+    },
 }
 
 CONFIG_LABELS = {
@@ -185,9 +222,12 @@ with tab_ask:
     if not case.structure:
         st.info("Index the documents first (tab 📄 Documents & structure).")
     else:
-        st.caption("Try an example:")
-        ex_cols = st.columns(len(EXAMPLES))
-        for col, (label, q) in zip(ex_cols, EXAMPLES.items()):
+        doc_ids = {p.stem for p in case.pdfs}
+        examples = next((ex for key, ex in EXAMPLES.items() if key in doc_ids), {})
+        if examples:
+            st.caption("Try an example:")
+        ex_cols = st.columns(len(examples) or 1)
+        for col, (label, q) in zip(ex_cols, examples.items()):
             col.button(label, on_click=set_question, args=(q,), width="stretch")
         question = st.text_area("Question", key="question", height=90,
                                 placeholder="Ask anything about the documents in this case…")
@@ -212,7 +252,10 @@ with tab_ask:
                             st.caption(f"Why: {ans.abstain_reason}")
                         st.caption("Documents searched: " + ", ".join(ans.searched_docs or ["–"]))
                     else:
-                        st.markdown(re.sub(r"^(\d+)\.", r"\1\\.", ans.answer))
+                        # citations are listed below; drop a citation the model put at the very start
+                        text = re.sub(r"^\s*(\[[^\]]+\]\s*(and\s*)?)+(states that\s*|detail[s]?\s*)?", "", ans.answer)
+                        text = text[:1].upper() + text[1:] if text else ans.answer
+                        st.markdown(re.sub(r"^(\d+)\.", r"\1\\.", text))
                         if ans.missing:
                             st.warning(f"**Partial answer, not found in the documents:** {ans.missing}")
                         if ans.explanation:
@@ -328,7 +371,7 @@ with tab_eval:
                 color=alt.Color("Metric:N", scale=palette, legend=alt.Legend(orient="top", title=None)),
                 tooltip=["Short", "Metric", alt.Tooltip("value:Q", format=".0%")],
             )
-            labels = bars.mark_text(dy=-7, fontSize=10, color="#c9d1d9").encode(
+            labels = bars.mark_text(dy=-7, fontSize=10, color="#3b4252").encode(
                 text=alt.Text("value:Q", format=".0%"))
             st.altair_chart((bars + labels).properties(height=330), width="stretch")
 
@@ -338,7 +381,7 @@ with tab_eval:
                     y=alt.Y("Short:N", sort=order, title=None, axis=alt.Axis(labelFontSize=12)),
                     x=alt.X("mean_seconds:Q", title="mean seconds per question"))
                 lat = lat_base.mark_bar(color="#8b949e", cornerRadiusEnd=3) + lat_base.mark_text(
-                    align="left", dx=4, color="#c9d1d9").encode(text=alt.Text("mean_seconds:Q", format=".1f"))
+                    align="left", dx=4, color="#3b4252").encode(text=alt.Text("mean_seconds:Q", format=".1f"))
                 st.markdown("**Latency**")
                 st.altair_chart(lat.properties(height=36 * len(summ)), width="stretch")
             with c_tab:

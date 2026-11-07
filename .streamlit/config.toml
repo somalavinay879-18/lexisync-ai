@@ -1,0 +1,11 @@
+# LexiSyncAI theme: "legal paper" - ivory page, navy ink, brass accent
+[theme]
+base = "light"
+primaryColor = "#9a7b3f"
+backgroundColor = "#f7f4ee"
+secondaryBackgroundColor = "#efe9dc"
+textColor = "#1d2433"
+font = "serif"
+
+[server]
+headless = false
