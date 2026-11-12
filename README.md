@@ -6,7 +6,7 @@ LexiSyncAI answers questions about public legal documents (statutes, contracts, 
 claim**: each sentence cites the page and clause it comes from, the cited page is shown with the region
 highlighted, and the system **abstains** when the documents do not contain the evidence.
 
-![Architecture](docs/architecture.png)
+![Architecture](docs/architecture-v2.png)
 
 ## What it does
 
