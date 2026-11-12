@@ -1,6 +1,6 @@
 # LexiSyncAI: Evidence-Grounded Legal Document Analyst
 
-DA3 Deep Learning & GenAI final project (SRH University Hamburg, WiSe 2025/26), by Vinay Somala.
+DA3 Deep Learning & GenAI final project (SRH University Hamburg, WiSe 2026/27), by Vinay Somala.
 
 LexiSyncAI answers questions about public legal documents (statutes, contracts, judgments) and **proves every
 claim**: each sentence cites the page and clause it comes from, the cited page is shown with the region
@@ -214,7 +214,7 @@ eval/
   questions.jsonl       22 held-out questions with gold labels
   run_eval.py           retrieval + end-to-end evaluation
 scripts/                document download, case building, OCR benchmark, synthetic test PDF
-tests/                  22 offline tests (run in GitHub Actions)
+tests/                  29 offline tests (run in GitHub Actions)
 docs/architecture.png   one-page architecture diagram
 ```
 
