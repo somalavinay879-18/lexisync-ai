@@ -1,0 +1,65 @@
+digraph G {
+  graph [rankdir=TB, fontname="DejaVu Sans", bgcolor="white", pad=0.5, nodesep=0.35, ranksep=0.5, newrank=true, compound=true, splines=spline];
+  node  [fontname="DejaVu Sans", fontsize=15, shape=box, style="rounded,filled", fillcolor="#ffffff", color="#475569", penwidth=1.4, margin="0.22,0.12", fontcolor="#0f172a"];
+  edge  [fontname="DejaVu Sans", fontsize=13, color="#475569", penwidth=1.5, arrowsize=0.8, fontcolor="#334155"];
+
+  subgraph cluster_ingest {
+    label=<<B>① Ingestion</B>   <FONT POINT-SIZE="12" COLOR="#64748b">ingest.py</FONT>>; labeljust=l; fontsize=17;
+    style="rounded,filled"; fillcolor="#eff6ff"; color="#93c5fd"; penwidth=1.5;
+    pdf   [label="2–5 public PDFs\n(upload or URL)"];
+    parse [label="PyMuPDF text blocks\n+ reading order (1–2 cols)"];
+    clean [label="Strip repeated headers/footers\nFootnotes · tables → Markdown"];
+    ocr   [label="Scanned page?\n→ Tesseract OCR", shape=box, style="rounded,filled,dashed"];
+    pdf -> parse -> clean;
+    parse -> ocr [style=dashed, label=" if scanned"];
+  }
+
+  subgraph cluster_chunk {
+    label=<<B>② Clause-aware chunking</B>   <FONT POINT-SIZE="12" COLOR="#64748b">chunking.py</FONT>>; labeljust=l; labelloc=b; fontsize=17;
+    style="rounded,filled"; fillcolor="#f0fdf4"; color="#86efac"; penwidth=1.5;
+    chunk [label="Split by Recital · Article ·\nparagraph 83(5) · clause 7.2\n\nchunk = clause + page + region"];
+  }
+
+  subgraph cluster_retrieve {
+    label=<<B>③ Hybrid retrieval</B>   <FONT POINT-SIZE="12" COLOR="#64748b">retrieve.py</FONT>>; labeljust=l; fontsize=17;
+    style="rounded,filled"; fillcolor="#fefce8"; color="#fde047"; penwidth=1.5;
+    q     [label="User question", shape=box, style="rounded,filled", fillcolor="#0f172a", fontcolor="white", color="#0f172a"];
+    plan  [label="Query planner (mq mode)\n2-part question → sub-queries"];
+    bm25  [label="BM25\n(exact refs like 7.2)"];
+    dense [label="Dense embeddings\nbge-small-en-v1.5"];
+    rrf   [label="Reciprocal Rank Fusion\ntop 30"];
+    rerank[label="Cross-encoder rerank\nMiniLM-L-6-v2 → top 4–6"];
+    q -> plan; plan -> bm25; plan -> dense; bm25 -> rrf; dense -> rrf; rrf -> rerank;
+  }
+
+  subgraph cluster_answer {
+    label=<<B>④ Grounded answer + verification</B>   <FONT POINT-SIZE="12" COLOR="#64748b">answer.py</FONT>>; labeljust=l; fontsize=17;
+    style="rounded,filled"; fillcolor="#faf5ff"; color="#d8b4fe"; penwidth=1.5;
+    gate  [label="Best relevance\n< 0.1 ?", shape=diamond, style="filled", fillcolor="#ffffff", margin="0.05,0.05"];
+    llm   [label="Local LLM · Qwen2.5 7B (Ollama)\nJSON: answer · claims · quotes"];
+    ver   [label="Verifier\nquotes & numbers\nin cited passage?", shape=diamond, style="filled", fillcolor="#ffffff", margin="0.05,0.05"];
+    ok    [label="✔ ANSWER\npage + clause citations\nconfidence HIGH / MED / LOW", fillcolor="#dcfce7", color="#16a34a"];
+    part  [label="◐ PARTIAL\ncovered part + named gap\n(max MEDIUM)", fillcolor="#fef3c7", color="#d97706"];
+    abst  [label="✖ ABSTAIN\ninsufficient evidence", fillcolor="#fee2e2", color="#dc2626"];
+    retry [label="↻ Reformulate query\n+ retrieve again (max 2 attempts)", fillcolor="#e0e7ff", color="#4f46e5"];
+    gate -> llm [label=" no"];
+    gate -> abst [label=" yes"];
+    llm -> ver;
+    ver -> ok   [label=" all supported"];
+    ver -> part [label=" partly"];
+    ver -> retry[label=" claim fails"];
+    ver -> abst [label=" none"];
+  }
+
+  ui   [label=<<B>⑤ Streamlit UI</B>  <FONT POINT-SIZE="12" COLOR="#cbd5e1">app.py</FONT><BR/>Ask · Documents · Evaluation<BR/>cited page highlighted>, fillcolor="#0f172a", fontcolor="white", color="#0f172a"];
+  eval [label=<<B>⑥ Evaluation</B>  <FONT POINT-SIZE="12" COLOR="#64748b">eval/</FONT><BR/>22 questions · recall@k<BR/>citation precision · abstention<BR/>latency · ablations>, fillcolor="#f1f5f9", color="#94a3b8"];
+
+  clean -> chunk [penwidth=2];
+  chunk:e -> bm25:w [label=" index", style=dashed];
+  chunk:e -> dense:n [style=dashed];
+  rerank -> gate [penwidth=2];
+  retry -> plan  [color="#4f46e5", fontcolor="#4f46e5", label=" retrieve again", constraint=false, style=bold];
+  ok -> ui; part -> ui; abst -> ui;
+  ui -> eval [style=dotted, color="#94a3b8", label=" measured by", dir=none];
+  {rank=same; ui; eval;}
+}
